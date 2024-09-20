@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monsleo Terminal Arcade</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #0f0;
+            overflow: hidden;
+        }
+        .terminal {
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        .line {
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .prompt::before {
+            content: '> ';
+        }
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 18px;
+            background-color: #0f0;
+            animation: blink 0.7s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+        .hidden {
+            display: none;
+        }
+        input {
+            background: transparent;
+            border: none;
+            color: #0f0;
+            font-family: inherit;
+            font-size: inherit;
+            outline: none;
+            width: calc(100% - 20px);
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal" id="terminal">
+        <div class="line">Welcome to the Monsleo Terminal Arcade!</div>
+        <div class="line">Type 'games' to see available games, or 'help' for commands.</div>
+        <div class="line prompt" id="inputLine">
+            <span id="inputText"></span><span class="cursor"></span>
+        </div>
+    </div>
+    <input type="text" id="hiddenInput" class="hidden">
+
+    <script>
+        const terminal = document.getElementById('terminal');
+        const inputLine = document.getElementById('inputLine');
+        const inputText = document.getElementById('inputText');
+        const hiddenInput = document.getElementById('hiddenInput');
+
+        let currentGame = null;
+        let gameState = {};
+
+        const games = {
+            unscramble: {
+                name: "Word Unscrambler",
+                description: "Unscramble words related to Monsleo.",
+                words: ['monsleo', 'terminal', 'adventure', 'puzzle', 'mystery'],
+                currentWord: '',
+                scrambledWord: '',
+                attempts: 0,
+                start: function() {
+                    addLine("Welcome to Word Unscrambler!");
+                    addLine("Unscramble the given word. Type your guess or 'hint' for a clue.");
+                    this.nextWord();
+                },
+                nextWord: function() {
+                    this.currentWord = this.words[Math.floor(Math.random() * this.words.length)];
+                    this.scrambledWord = this.scrambleWord(this.currentWord);
+                    this.attempts = 0;
+                    addLine(`Unscramble this word: ${this.scrambledWord}`);
+                },
+                scrambleWord: function(word) {
+                    return word.split('').sort(() => Math.random() - 0.5).join('');
+                },
+                processInput: function(input) {
+                    if (input === 'hint') {
+                        addLine(`Hint: The word starts with "${this.currentWord[0]}"`);
+                    } else if (input === this.currentWord) {
+                        addLine("Correct! Well done!");
+                        this.nextWord();
+                    } else {
+                        this.attempts++;
+                        addLine(`Incorrect. Try again. Attempts: ${this.attempts}`);
+                    }
+                }
+            },
+            codebreaker: {
+                name: "Codebreaker",
+                description: "Decrypt messages using Caesar cipher.",
+                messages: [
+                    "NHHS XS JC RCBGZSC",
+                    "QCAFSB UG KCIF ACBSKCFR",
+                    "ORJNGB DN OCZ VZXMZO",
+                ],
+                currentMessage: '',
+                shift: 0,
+                start: function() {
+                    addLine("Welcome to Codebreaker!");
+                    addLine("Decrypt the message by finding the right Caesar cipher shift.");
+                    addLine("Type a number to shift, or 'solve' to submit your answer.");
+                    this.nextMessage();
+                },
+                nextMessage: function() {
+                    this.currentMessage = this.messages[Math.floor(Math.random() * this.messages.length)];
+                    this.shift = Math.floor(Math.random() * 25) + 1;
+                    addLine(`Decrypt this message: ${this.currentMessage}`);
+                },
+                decrypt: function(shift) {
+                    return this.currentMessage.split('').map(char => {
+                        if (char.match(/[A-Z]/)) {
+                            return String.fromCharCode((char.charCodeAt(0) - 65 - shift + 26) % 26 + 65);
+                        }
+                        return char;
+                    }).join('');
+                },
+                processInput: function(input) {
+                    if (input === 'solve') {
+                        addLine("What's your solution?");
+                        gameState.solvingMode = true;
+                    } else if (gameState.solvingMode) {
+                        if (input === this.decrypt(this.shift)) {
+                            addLine("Correct! You've broken the code!");
+                            this.nextMessage();
+                        } else {
+                            addLine("That's not correct. Keep trying!");
+                        }
+                        gameState.solvingMode = false;
+                    } else {
+                        const shift = parseInt(input);
+                        if (!isNaN(shift)) {
+                            addLine(`Shifted by ${shift}: ${this.decrypt(shift)}`);
+                        } else {
+                            addLine("Please enter a number to shift or 'solve' to submit your answer.");
+                        }
+                    }
+                }
+            },
+            treasure: {
+                name: "Treasure Hunt",
+                description: "Search for hidden treasure in a text-based world.",
+                rooms: {
+                    start: {
+                        description: "You're in a dimly lit room. Exits are north and east.",
+                        exits: {north: 'corridor', east: 'library'}
+                    },
+                    corridor: {
+                        description: "A long corridor stretches before you. Exits are south and west.",
+                        exits: {south: 'start', west: 'vault'}
+                    },
+                    library: {
+                        description: "Shelves of ancient books surround you. There's a desk with a drawer. Exits are west and north.",
+                        exits: {west: 'start', north: 'study'},
+                        items: ['key']
+                    },
+                    study: {
+                        description: "A cozy study with a fireplace. Exits are south and east.",
+                        exits: {south: 'library', east: 'vault'}
+                    },
+                    vault: {
+                        description: "A sturdy vault door stands before you. It seems to require a key.",
+                        exits: {east: 'corridor'},
+                        locked: true
+                    }
+                },
+                currentRoom: 'start',
+                inventory: [],
+                start: function() {
+                    addLine("Welcome to the Treasure Hunt!");
+                    addLine("Find the hidden treasure. Commands: look, go [direction], take [item], use [item], inventory");
+                    this.look();
+                },
+                look: function() {
+                    const room = this.rooms[this.currentRoom];
+                    addLine(room.description);
+                    if (room.items) {
+                        addLine(`You see: ${room.items.join(', ')}`);
+                    }
+                },
+                go: function(direction) {
+                    const room = this.rooms[this.currentRoom];
+                    if (room.exits[direction]) {
+                        if (room.exits[direction] === 'vault' && this.rooms.vault.locked) {
+                            addLine("The vault door is locked. You need a key.");
+                        } else {
+                            this.currentRoom = room.exits[direction];
+                            this.look();
+                        }
+                    } else {
+                        addLine("You can't go that way.");
+                    }
+                },
+                take: function(item) {
+                    const room = this.rooms[this.currentRoom];
+                    if (room.items && room.items.includes(item)) {
+                        this.inventory.push(item);
+                        room.items = room.items.filter(i => i !== item);
+                        addLine(`You take the ${item}.`);
+                    } else {
+                        addLine("You don't see that item here.");
+                    }
+                },
+                use: function(item) {
+                    if (this.inventory.includes(item)) {
+                        if (item === 'key' && this.currentRoom === 'vault') {
+                            addLine("You unlock the vault door. Inside, you find the treasure!");
+                            addLine("Congratulations! You've completed the Treasure Hunt!");
+                            currentGame = null;
+                        } else {
+                            addLine("You can't use that here.");
+                        }
+                    } else {
+                        addLine("You don't have that item.");
+                    }
+                },
+                inventory: function() {
+                    if (this.inventory.length > 0) {
+                        addLine(`You are carrying: ${this.inventory.join(', ')}`);
+                    } else {
+                        addLine("Your inventory is empty.");
+                    }
+                },
+                processInput: function(input) {
+                    const [command, ...args] = input.split(' ');
+                    switch(command) {
+                        case 'look': this.look(); break;
+                        case 'go': this.go(args[0]); break;
+                        case 'take': this.take(args[0]); break;
+                        case 'use': this.use(args[0]); break;
+                        case 'inventory': this.inventory(); break;
+                        default: addLine("I don't understand that command.");
+                    }
+                }
+            }
+        };
+
+        const commands = {
+            help: "Available commands: games, play [game], exit, clear",
+            games: function() {
+                addLine("Available games:");
+                for (let [key, game] of Object.entries(games)) {
+                    addLine(`- ${key}: ${game.name} - ${game.description}`);
+                }
+            },
+            play: function(gameName) {
+                if (games[gameName]) {
+                    currentGame = gameName;
+                    gameState = {};
+                    games[gameName].start();
+                } else {
+                    addLine(`Game '${gameName}' not found. Type 'games' to see available games.`);
+                }
+            },
+            exit: function() {
+                if (currentGame) {
+                    addLine(`Exiting ${games[currentGame].name}.`);
+                    currentGame = null;
+                    gameState = {};
+                } else {
+                    addLine("You're not currently in a game.");
+                }
+            },
+            clear: function() {
+                terminal.innerHTML = '';
+                addLine("Terminal cleared. Type 'help' for commands or 'games' to see available games.");
+            }
+        };
+
+        function addLine(text, isPrompt = false) {
+            const line = document.createElement('div');
+            line.className = 'line' + (isPrompt ? ' prompt' : '');
+            line.textContent = text;
+            terminal.insertBefore(line, inputLine);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function processCommand(input) {
+            const [command, ...args] = input.toLowerCase().split(' ');
+            if (currentGame) {
+                games[currentGame].processInput(input);
+            } else if (command in commands) {
+                if (typeof commands[command] === 'function') {
+                    commands[command](...args);
+                } else {
+                    addLine(commands[command]);
+                }
+            } else {
+                addLine("Command not recognized. Type 'help' for a list of commands.");
+            }
+        }
+
+        hiddenInput.addEventListener('input', function() {
+            inputText.textContent = this.value;
+        });
+
+        hiddenInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const command = this.value;
+                addLine(command, true);
+                processCommand(command);
+                this.value = '';
+                inputText.textContent = '';
+            }
+        });
+
+        document.addEventListener('click', function() {
+            hiddenInput.focus();
+        });
+
+        hiddenInput.focus();
+    </script>
+</body>
+</html>
